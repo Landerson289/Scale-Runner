@@ -1,9 +1,11 @@
-import sys
 import pygame
+import random
+import math
 import time
-#from replit import audio
-#from pygame import mixer
-#from playsound import playsound
+from pygame import mixer
+
+pygame.font.init()
+testFont=pygame.font.Font("MotorolaScreentype.ttf",16)
 
 noteOrder = ["E4", "F4", "G4", "A3", "B3", "C3", "D3", "E3", "F3"]
 noteLengths = {
@@ -13,7 +15,7 @@ noteLengths = {
 
 pygame.init()
 screen = pygame.display.set_mode((400, 300))
-pygame.display.set_caption('Hello World!')
+pygame.display.set_caption('Scale Runner!')
 
 slowFactor = 10
 gravity = 10
@@ -35,48 +37,61 @@ class Player:
     var = pygame.PixelArray(self.sprite)
     var.replace((0,0,0),(255,0,255))
     del var
+    self.lastPositions = []
 
   def update(self):
-    #self.pos[0] += self.speed * deltaTime
     self.vel[1] += gravity * deltaTime
+    self.lastPositions.append([beat,self.pos[1]])
     self.pos[1] += self.vel[1] * deltaTime
 
   def show(self):
     screen.blit(self.sprite, (self.pos[0],self.pos[1]))
+    self.drawTrail()
+
+  def drawTrail(self):
+    text = testFont.render(str(len(self.lastPositions)), True, (0,0,0))
+    screen.blit(text, (2,2))
+
+    count = 0
+
+    for i in range(1, len(self.lastPositions)//20):
+      count += 1
+      pos = self.lastPositions[len(self.lastPositions) - i*20]
+      
+      size = 16/(i+0.1)**0.5
+      x  = 64 * (pos[0] - beat) + 64
+      pygame.draw.circle(screen, (255,0,255), (x, pos[1]), size/2)
+
+      if i >= 50:
+        break
+      
 
   def jump(self):
     for note in notes:
-      if 0< (note.beat - beat) < note.length and note.y-16 < self.pos[1] < note.y+16:
-        #self.vel[1] = -1*abs(self.vel[1]) - 1 * (note.length)
+      if -note.length/2 < (note.beat - beat) < note.length/2 and note.y-16 < self.pos[1] < note.y+16:
+
         nextNote = self.jumpTo(note.length, note.beat)
-        print(note.beat, nextNote.beat)
-        #1/6at^2 + 1/2v*t + deltaY
-        #1/6*gravity*nextNote.beat**2 + 1/2*self.vel[1] * nextNote.beat + (self.pos[1]-nextNote.y) = 0
-        self.vel[1] = (-gravity*(nextNote.beat-beat)**2 - (self.pos[1] - nextNote.y))/(nextNote.beat-beat)
-        break
         
-        
+        self.vel[1] = (self.pos[1]-nextNote.y)/(beat-nextNote.beat) - 1/6*gravity*(beat + nextNote.beat)
+
   def jumpTo(self, length, noteBeat):
     nextBeat = noteBeat + length
     noteBeforeBeat = notes[0] # Find the nearest note before the beat
     noteAfterBeat = notes[-1] # Find the nearest note after the beat
     for note in notes:
-      #print(note.beat, nextBeat, noteAfterBeat.beat, abs(noteAfterBeat.beat - nextBeat), abs(note.beat - nextBeat))
       if note.beat <= nextBeat:
         if abs(noteBeforeBeat.beat - nextBeat) > abs(note.beat - nextBeat):
-          #print("B")
           noteBeforeBeat = note
       elif note.beat >= nextBeat:
         if abs(noteAfterBeat.beat - nextBeat) > abs(note.beat - nextBeat):
           noteAfterBeat = note
-          #print("A")
 
     if abs(noteAfterBeat.beat - nextBeat) >= abs(noteBeforeBeat.beat - nextBeat):
       targetNote = noteBeforeBeat
     else:
       targetNote = noteAfterBeat
     return targetNote
-      
+
 
 class Note:
   def __init__(self, type, pitch, beat):
@@ -91,9 +106,9 @@ class Note:
 
   def show(self):
     self.x = 64 * (self.beat - beat) + 64
-    
+
     screen.blit(self.sprite, (self.x,self.y))
-    
+
 
 player = Player()
 notes = []
@@ -110,20 +125,15 @@ while True:
   lastTime = currentTime
   currentTime = time.time()
   deltaTime = currentTime - lastTime
-  
+
   drawBackground()
-  #print(1/(bpm*60)*slowFactor)
-  #print(" ",currentTime - lastTime)
-  #if currentTime - lastBeat >= 1/(bpm*60)*slowFactor:
-  #  beat += 1
-  #  lastBeat = time.time()
   beat += 1/(bpm*60)*slowFactor
 
   player.update()
   player.show()
   for note in notes:
     note.show()
-  
+
   for event in pygame.event.get():
     if event.type == pygame.KEYDOWN:
       if event.key == pygame.K_ESCAPE:
@@ -131,7 +141,6 @@ while True:
         sys.exit()
       elif event.key == pygame.K_SPACE:
         player.jump()
-        
-  
+
+
   pygame.display.update()
-  #time.sleep(100)
